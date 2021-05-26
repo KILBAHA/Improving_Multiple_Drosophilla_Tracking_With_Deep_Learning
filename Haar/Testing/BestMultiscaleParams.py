@@ -90,12 +90,12 @@ def track(cascade, test_vid, outfile, known_flies = 41, write_coords = True):
 test_vid = 'test_vid.mp4'#path to video to be tested
 #outfolder = 'Output/'#path to training folder 
 
-track('Enrichment.xml', test_vid, 'Enrich_Test.avi')
-track ('/home/yusuf/Documents/VJ_Ethoscope/cascade.xml',test_vid, 'CurationOld_Test.avi' )
-track('Simple_Curation.xml', test_vid, 'Curation_Test.avi')
+# track('Enrichment.xml', test_vid, 'Enrich_Test.avi')
+# track ('/home/yusuf/Documents/VJ_Ethoscope/cascade.xml',test_vid, 'CurationOld_Test.avi' )
+# track('Simple_Curation.xml', test_vid, 'Curation_Test.avi')
 
-track ('Enrichment.xml','simple_vid.mp4', 'Enrichment_SimpleVid.avi', known_flies = 33)
-track ('/home/yusuf/Documents/VJ_Ethoscope/cascade.xml','simple_vid.mp4', 'CurationOld_SimpleVid.avi', known_flies = 33)
+#track ('Enrichment.xml','simple_vid.mp4', 'Enrichment_SimpleVid.avi', known_flies = 33)
+#track ('/home/yusuf/Documents/VJ_Ethoscope/cascade.xml','simple_vid.mp4', 'CurationOld_SimpleVid.avi', known_flies = 33)
 track('Simple_Curation.xml', 'simple_vid.mp4', 'Curation_SimpleVid.avi', known_flies = 33)
 
 
