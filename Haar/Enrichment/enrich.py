@@ -74,12 +74,12 @@ for i in range(0,len(k_list)-1):
             enrich_frame.append(i+1)
 
 
-cap = cv2.VideoCapture("/home/yusuf/Documents/VJ_Ethoscope/test.mp4")
+cap = cv2.VideoCapture("/home/yusuf/Documents/GitHub/Tracking_Project/Haar/Enrichment/test.mp4")
 
 print('got coords')
 
-h = 30
-w = 50
+h = 25
+w = 25
 count = 0
 #itterate through specific frames, get crop and save as .png files in enrich folder
 
@@ -93,7 +93,7 @@ for ind, frm in enumerate(enrich_frame):
     if ret==True:
         # Croping the frame
         for coord in enrich_coord[ind]:
-            crop_frame = frame[coord[1]-h:coord[1]+h, coord[0]-w:coord[0]+w]
+            crop_frame = frame[coord[1]:coord[1]+h, coord[0]:coord[0]+w]
     
     
             # cv2.imshow('croped',crop_frame)

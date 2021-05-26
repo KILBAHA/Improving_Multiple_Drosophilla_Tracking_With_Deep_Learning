@@ -16,7 +16,7 @@ def vid_to_img(vid, outfolder):
 outfolder = 'simple'
 vid = 'simple_vid.mp4'
 
-#vid_to_img(vid,outfolder) #uncomment if you need to generate images again
+vid_to_img(vid,outfolder) #uncomment if you need to generate images again
 
 #for i in range(0,frms)
 

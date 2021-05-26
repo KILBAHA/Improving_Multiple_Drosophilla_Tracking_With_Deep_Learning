@@ -28,22 +28,22 @@ for image in images: #remove slice to itterate through all vals
         pass
     elif k == ord('1'):
         fly_dict[image] = 1
-    elif k == ord('2'):
-        fly_dict[image] = 2
-    elif k == ord('3'):
-        fly_dict[image] = 3
-    elif k == ord('4'):
-        fly_dict[image] = 4
-    elif k == ord('5'):
-        fly_dict[image] = 5
-    elif k == ord('6'):
-        fly_dict[image] = 6
-    elif k == ord('7'):
-        fly_dict[image] = 7
-    elif k == ord('8'):
-        fly_dict[image] = 8
-    elif k == ord('9'):
-        fly_dict[image] = 9
+    # elif k == ord('2'):
+    #     fly_dict[image] = 2
+    # elif k == ord('3'):
+    #     fly_dict[image] = 3
+    # elif k == ord('4'):
+    #     fly_dict[image] = 4
+    # elif k == ord('5'):
+    #     fly_dict[image] = 5
+    # elif k == ord('6'):
+    #     fly_dict[image] = 6
+    # elif k == ord('7'):
+    #     fly_dict[image] = 7
+    # elif k == ord('8'):
+    #     fly_dict[image] = 8
+    # elif k == ord('9'):
+    #     fly_dict[image] = 9
     
     cv2.destroyAllWindows()
     
