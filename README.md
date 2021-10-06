@@ -12,7 +12,14 @@ The Scripts for the Viola Jones Object Detection method can be found in the "Haa
 
 ### CNN Methods
 The Collab Notebooks for Faster R-CNN & YOLO can be found below:
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/KILBAHA/Tracking_Project/Faster R-CNN Detection and Tracking/]
+
+Faster R-CNN detection + Tracking: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/KILBAHA/9dd146ec953412a0bddb76bf375568e5/detectron2_w_drosophila.ipynb)]
+
+
+YOLO detection:
+
+YOLO detection + Tracking: 
+
 
 These are entirely self contained and should run straight out of the box.
 
