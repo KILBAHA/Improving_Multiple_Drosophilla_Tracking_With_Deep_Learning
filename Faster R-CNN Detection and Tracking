@@ -1,0 +1,809 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "accelerator": "GPU",
+    "colab": {
+      "name": "Detectron2_w_Drosophila.ipynb",
+      "provenance": [],
+      "collapsed_sections": [],
+      "machine_shape": "hm",
+      "authorship_tag": "ABX9TyOKNclnMz6Iacnw1iUrldkn",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "display_name": "Python 3",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/KILBAHA/Tracking_Project/blob/main/Faster%20R-CNN%20Detection%20and%20Tracking\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "YGMHjlq8wZmN"
+      },
+      "source": [
+        "# Object Detection and Tracking with Faster R-CNN\n",
+        "\n",
+        "Before you run this notebook make sure you change the Runtime to GPU - The script requires the use of CUDA"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "vsP-FR7w-J5t",
+        "cellView": "form",
+        "outputId": "fc8ff3ce-52f1-49d1-c07c-18da66bd49bf"
+      },
+      "source": [
+        "#@title Optional: Mount your google drive\n",
+        "#@markdown Handy for file management\n",
+        "#Use this to mount your google drive. Handy for uploading files.\n",
+        "\n",
+        "from google.colab import drive\n",
+        "drive.mount('/content/drive')"
+      ],
+      "execution_count": 12,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Drive already mounted at /content/drive; to attempt to forcibly remount, call drive.mount(\"/content/drive\", force_remount=True).\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "cellView": "form",
+        "id": "Jad5aChcYDE4"
+      },
+      "source": [
+        "#@title Download dataset and test video\n",
+        "#Downloads the dataset and test video from a public google drive folder I have set up\n",
+        "\n",
+        "!gdown --id 1Xboqad16E6LplTqCwaSDqpxHkXN2cvSq\n",
+        "!gdown --id 1qZxe9Xwm26aexjsXGt_JOoRH8gmqI6xA\n",
+        "dataset_path = '/content/roboflow.zip'\n",
+        "testvid_path = '/content/test_vid.mp4'"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "FFH9HVTu_eCm"
+      },
+      "source": [
+        "#Install Dependencies and Import Modules"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "AjprEsdy_VLv",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Install Dependencies\n",
+        "# install dependencies: (use cu101 because colab has CUDA 10.1)\n",
+        "!pip install -U torch==1.5 torchvision==0.6 -f https://download.pytorch.org/whl/cu101/torch_stable.html \n",
+        "!pip install cython pyyaml==5.1\n",
+        "!pip install -U 'git+https://github.com/cocodataset/cocoapi.git#subdirectory=PythonAPI'\n",
+        "import torch, torchvision\n",
+        "print(torch.__version__, torch.cuda.is_available())\n",
+        "!gcc --version\n",
+        "# opencv is pre-installed on colab\n",
+        "#Install detectron 2\n",
+        "!pip install detectron2==0.1.3 -f https://dl.fbaipublicfiles.com/detectron2/wheels/cu101/torch1.5/index.html\n",
+        "\n",
+        "def send_notification(msg): #initialised this here, just incase user doesn't run next optional block\n",
+        "  pass "
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "0IZEx_lZyJLe",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Optional: Install sandesh for mobile push notifications (via slack)\n",
+        "#@markdown Training takes a while so I set up a system to deliver mobile push notifications via slack when training is finished. You will need the webhook for a slack channel in order to use this (https://www.youtube.com/watch?v=6NJuntZSJVA). Add the webhook to the textbox below\n",
+        "webhook = ''#@param\n",
+        "\n",
+        "if webhook != '': #Conditional, incase user runs all cells and has no webhook\n",
+        "  !pip install sandesh\n",
+        "  import sandesh\n",
+        "  import datetime\n",
+        "\n",
+        "  def send_notification(msg): #Function to send mobile notifications via slack - don't have to be at my desk to know when training has completed!\n",
+        "    sandesh.send(str(msg) + '  @' + str(datetime.datetime.now()), webhook=webhook)"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "yS_aZit-_tXp",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Import Modules\n",
+        "#@markdown You may need to restart your runtime prior to this, to let your installation take effect\n",
+        "# Some basic setup:\n",
+        "# Setup detectron2 logger\n",
+        "import detectron2\n",
+        "from detectron2.utils.logger import setup_logger\n",
+        "setup_logger()\n",
+        "\n",
+        "# import some common libraries\n",
+        "import numpy as np\n",
+        "import cv2\n",
+        "import random\n",
+        "from google.colab.patches import cv2_imshow\n",
+        "\n",
+        "# import some common detectron2 utilities\n",
+        "from detectron2 import model_zoo\n",
+        "from detectron2.engine import DefaultPredictor\n",
+        "from detectron2.config import get_cfg\n",
+        "from detectron2.utils.visualizer import Visualizer\n",
+        "from detectron2.data import MetadataCatalog\n",
+        "from detectron2.data.catalog import DatasetCatalog"
+      ],
+      "execution_count": 7,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "bXfWji1kAJke",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Extract and Register Dataset\n",
+        "!cp $dataset_path roboflow.zip\n",
+        "!unzip roboflow.zip; rm roboflow.zip\n",
+        "from detectron2.data.datasets import register_coco_instances\n",
+        "register_coco_instances(\"my_dataset_train\", {}, \"/content/train/_annotations.coco.json\", \"/content/train\")\n",
+        "register_coco_instances(\"my_dataset_val\", {}, \"/content/valid/_annotations.coco.json\", \"/content/valid\")\n",
+        "register_coco_instances(\"my_dataset_test\", {}, \"/content/test/_annotations.coco.json\", \"/content/test\")"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "yxJIrn7EAs7-"
+      },
+      "source": [
+        "# Train using Detectron 2"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "enRYnB2MA3F-",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Import Custom Trainer Module\n",
+        "#@markdown We are importing our own Trainer Module here to use the COCO validation evaluation during training. Otherwise no validation eval occurs.\n",
+        "\n",
+        "from detectron2.engine import DefaultTrainer\n",
+        "from detectron2.evaluation import COCOEvaluator\n",
+        "\n",
+        "class CocoTrainer(DefaultTrainer):\n",
+        "\n",
+        "  @classmethod\n",
+        "  def build_evaluator(cls, cfg, dataset_name, output_folder=None):\n",
+        "\n",
+        "    if output_folder is None:\n",
+        "        os.makedirs(\"coco_eval\", exist_ok=True)\n",
+        "        output_folder = \"coco_eval\"\n",
+        "\n",
+        "    return COCOEvaluator(dataset_name, cfg, False, output_folder)"
+      ],
+      "execution_count": 10,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "SYI12FmvA5lO",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Run Training\n",
+        "#@markdown The Two most important hyperparameters for training are the learning rate, and the maximum number of itterations\n",
+        "\n",
+        "#from .detectron2.tools.train_net import Trainer\n",
+        "#from detectron2.engine import DefaultTrainer\n",
+        "# select from modelzoo here: https://github.com/facebookresearch/detectron2/blob/master/MODEL_ZOO.md#coco-object-detection-baselines\n",
+        "\n",
+        "from detectron2.config import get_cfg\n",
+        "#from detectron2.evaluation.coco_evaluation import COCOEvaluator\n",
+        "import os\n",
+        "\n",
+        "cfg = get_cfg()\n",
+        "cfg.merge_from_file(model_zoo.get_config_file(\"COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\"))\n",
+        "cfg.DATASETS.TRAIN = (\"my_dataset_train\",)\n",
+        "cfg.DATASETS.TEST = (\"my_dataset_val\",)\n",
+        "\n",
+        "cfg.DATALOADER.NUM_WORKERS = 4\n",
+        "cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(\"COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\")  # Let training initialize from model zoo\n",
+        "cfg.SOLVER.IMS_PER_BATCH = 4\n",
+        "cfg.SOLVER.BASE_LR = 0.001\n",
+        "\n",
+        "max_itterations = 2150 #@param\n",
+        "learning_rate = 0.05 #@param\n",
+        "\n",
+        "cfg.SOLVER.WARMUP_ITERS = 1000\n",
+        "cfg.SOLVER.MAX_ITER = 2150 #adjust up if val mAP is still rising, adjust down if overfit (default = 1500), best so far 2150 \n",
+        "cfg.SOLVER.STEPS = [] #(1000, 1500) \n",
+        "cfg.SOLVER.GAMMA = learning_rate \n",
+        "\n",
+        "\n",
+        "\n",
+        "\n",
+        "cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 64\n",
+        "cfg.MODEL.ROI_HEADS.NUM_CLASSES = 2 #your number of classes + 1\n",
+        "\n",
+        "cfg.TEST.EVAL_PERIOD = 500\n",
+        "\n",
+        "\n",
+        "os.makedirs(cfg.OUTPUT_DIR, exist_ok=True)\n",
+        "trainer = CocoTrainer(cfg)\n",
+        "trainer.resume_or_load(resume=False)\n",
+        "\n",
+        "send_notification(\"begin training\")\n",
+        "\n",
+        "trainer.train()\n",
+        "\n",
+        "send_notification(\"finished training\")\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "hCBfhiaVA9Y9",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title View training curves:\n",
+        "#@markdown These graphs detail the performance of the network with increasing itterations. We want to ensure the network does not overfit, so we stop training at the point where AP increase and loss decrease begin to level off\n",
+        "%load_ext tensorboard\n",
+        "%tensorboard --logdir output"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "KtwbMJbMBRTu",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Evaluate performance\n",
+        "#@markdown This outputs the Mean Average Precesion (AP) for classification alongside Average Precision at IoU's of 50 & 75 (AP50, AP75)\n",
+        "from detectron2.data import DatasetCatalog, MetadataCatalog, build_detection_test_loader\n",
+        "from detectron2.evaluation import COCOEvaluator, inference_on_dataset\n",
+        "\n",
+        "cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, \"model_final.pth\")\n",
+        "cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.85\n",
+        "predictor = DefaultPredictor(cfg)\n",
+        "evaluator = COCOEvaluator(\"my_dataset_test\", cfg, False, output_dir=\"./output/\")\n",
+        "val_loader = build_detection_test_loader(cfg, \"my_dataset_test\")\n",
+        "send_notification(\"Begin Testing\")\n",
+        "inference_on_dataset(trainer.model, val_loader, evaluator)\n",
+        "#Send mobile push notification\n",
+        "send_notification('Testing complete')"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "pRXPFGn2Bfk2",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Show bounding boxes generated for images in test set\n",
+        "#@markdown Testing threshold ensures only regions detected as flies above a certain confidence are printed to screen\n",
+        "\n",
+        "cfg.MODEL.WEIGHTS = os.path.join(cfg.OUTPUT_DIR, \"model_final.pth\")\n",
+        "cfg.DATASETS.TEST = (\"my_dataset_test\", )\n",
+        "\n",
+        "testing_threshold = 0.7 #@param\n",
+        "cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = testing_threshold   # set the testing threshold for this model\n",
+        "predictor = DefaultPredictor(cfg)\n",
+        "test_metadata = MetadataCatalog.get(\"my_dataset_test\")\n",
+        "\n",
+        "from detectron2.utils.visualizer import ColorMode\n",
+        "import glob\n",
+        "\n",
+        "for imageName in glob.glob('/content/test/*jpg'):\n",
+        "  im = cv2.imread(imageName)\n",
+        "  outputs = predictor(im)\n",
+        "  print(len(outputs[\"instances\"].pred_classes))\n",
+        "  v = Visualizer(im[:, :, ::-1],\n",
+        "                metadata=test_metadata, \n",
+        "                scale=0.8\n",
+        "                 )\n",
+        "  out = v.draw_instance_predictions(outputs[\"instances\"].to(\"cpu\"))\n",
+        "  cv2_imshow(out.get_image()[:, :, ::-1])\n",
+        "  cv2.imwrite(\"/content/output/outputim/\" + imageName,out.get_image()[:, :, ::-1])"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "iylavJrlsl60"
+      },
+      "source": [
+        "#Video Inference with Detectron2"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "RCRTO_Bjsg9x",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Run detector on test video \n",
+        "\n",
+        "#!/usr/bin/env python3\n",
+        "# -- coding: utf-8 --\n",
+        "send_notification(\"Started Video Inference\")\n",
+        "import detectron2\n",
+        "from detectron2.utils.logger import setup_logger\n",
+        "setup_logger()\n",
+        "# import some common libraries\n",
+        "import numpy as np\n",
+        "import tqdm\n",
+        "import cv2\n",
+        "# import some common detectron2 utilities\n",
+        "from detectron2 import model_zoo\n",
+        "from detectron2.engine import DefaultPredictor\n",
+        "from detectron2.config import get_cfg\n",
+        "from detectron2.utils.video_visualizer import VideoVisualizer\n",
+        "from detectron2.utils.visualizer import ColorMode, Visualizer\n",
+        "from detectron2.data import MetadataCatalog\n",
+        "import time\n",
+        "\n",
+        "# Extract video properties\n",
+        "video = cv2.VideoCapture($testvid_path)\n",
+        "width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))\n",
+        "height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))\n",
+        "frames_per_second = video.get(cv2.CAP_PROP_FPS)\n",
+        "num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))\n",
+        "\n",
+        "# Initialize video writer\n",
+        "video_writer = cv2.VideoWriter('out.mp4', fourcc=cv2.VideoWriter_fourcc(*\"mp4v\"), fps=float(frames_per_second), frameSize=(width, height), isColor=True)\n",
+        "\n",
+        "# Initialize predictor\n",
+        "#cfg = get_cfg()\n",
+        "#cfg.merge_from_file(model_zoo.get_config_file(\"COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\"))\n",
+        "#cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # set threshold for this model\n",
+        "#cfg.MODEL.WEIGHTS = \"/content/drive/MyDrive/model_final.pth\"\n",
+        "#cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(\"COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\")\n",
+        "#predictor = DefaultPredictor(cfg)\n",
+        "\n",
+        "# Initialize visualizer\n",
+        "v = VideoVisualizer(MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), ColorMode.IMAGE)\n",
+        "\n",
+        "def runOnVideo(video, maxFrames):\n",
+        "    global pred_flies\n",
+        "    \"\"\" Runs the predictor on every frame in the video (unless maxFrames is given),\n",
+        "    and returns the frame with the predictions drawn.\n",
+        "    \"\"\"\n",
+        "    pred_flies = []\n",
+        "    readFrames = 0\n",
+        "    while True:\n",
+        "        hasFrame, frame = video.read()\n",
+        "        if not hasFrame:\n",
+        "            break\n",
+        "\n",
+        "        # Get prediction results for this frame\n",
+        "        outputs = predictor(frame)\n",
+        "        pred_flies.append(len(outputs[\"instances\"].pred_classes))\n",
+        "\n",
+        "        # Make sure the frame is colored\n",
+        "        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)\n",
+        "\n",
+        "        # Draw a visualization of the predictions using the video visualizer\n",
+        "        visualization = v.draw_instance_predictions(frame, outputs[\"instances\"].to(\"cpu\"))\n",
+        "\n",
+        "        # Convert Matplotlib RGB format to OpenCV BGR format\n",
+        "        visualization = cv2.cvtColor(visualization.get_image(), cv2.COLOR_RGB2BGR)\n",
+        "\n",
+        "        yield visualization\n",
+        "\n",
+        "        readFrames += 1\n",
+        "        if readFrames > maxFrames:\n",
+        "            break\n",
+        "\n",
+        "# Create a cut-off for debugging\n",
+        "#num_frames = 120\n",
+        "\n",
+        "# Enumerate the frames of the video\n",
+        "for visualization in tqdm.tqdm(runOnVideo(video, num_frames), total=num_frames):\n",
+        "\n",
+        "    # Write test image\n",
+        "    cv2.imwrite('POSE detectron2.png', visualization)\n",
+        "\n",
+        "    # Write to video file\n",
+        "    video_writer.write(visualization)\n",
+        "\n",
+        "# Release resources\n",
+        "video.release()\n",
+        "video_writer.release()\n",
+        "cv2.destroyAllWindows()\n",
+        "send_notification('Finished Writing to Video')"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 17
+        },
+        "id": "S3vHKfMaJ8hy",
+        "cellView": "form",
+        "outputId": "a32d9c26-ae11-44e2-e90c-523ca890dd62"
+      },
+      "source": [
+        "#@title Download Video\n",
+        "from google.colab import files\n",
+        "files.download('out.mp4')"
+      ],
+      "execution_count": null,
+      "outputs": [
+        {
+          "output_type": "display_data",
+          "data": {
+            "application/javascript": [
+              "\n",
+              "    async function download(id, filename, size) {\n",
+              "      if (!google.colab.kernel.accessAllowed) {\n",
+              "        return;\n",
+              "      }\n",
+              "      const div = document.createElement('div');\n",
+              "      const label = document.createElement('label');\n",
+              "      label.textContent = `Downloading \"${filename}\": `;\n",
+              "      div.appendChild(label);\n",
+              "      const progress = document.createElement('progress');\n",
+              "      progress.max = size;\n",
+              "      div.appendChild(progress);\n",
+              "      document.body.appendChild(div);\n",
+              "\n",
+              "      const buffers = [];\n",
+              "      let downloaded = 0;\n",
+              "\n",
+              "      const channel = await google.colab.kernel.comms.open(id);\n",
+              "      // Send a message to notify the kernel that we're ready.\n",
+              "      channel.send({})\n",
+              "\n",
+              "      for await (const message of channel.messages) {\n",
+              "        // Send a message to notify the kernel that we're ready.\n",
+              "        channel.send({})\n",
+              "        if (message.buffers) {\n",
+              "          for (const buffer of message.buffers) {\n",
+              "            buffers.push(buffer);\n",
+              "            downloaded += buffer.byteLength;\n",
+              "            progress.value = downloaded;\n",
+              "          }\n",
+              "        }\n",
+              "      }\n",
+              "      const blob = new Blob(buffers, {type: 'application/binary'});\n",
+              "      const a = document.createElement('a');\n",
+              "      a.href = window.URL.createObjectURL(blob);\n",
+              "      a.download = filename;\n",
+              "      div.appendChild(a);\n",
+              "      a.click();\n",
+              "      div.remove();\n",
+              "    }\n",
+              "  "
+            ],
+            "text/plain": [
+              "<IPython.core.display.Javascript object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "application/javascript": [
+              "download(\"download_8ea323f4-82e9-4d24-9296-12236b95809a\", \"out.mp4\", 86024090)"
+            ],
+            "text/plain": [
+              "<IPython.core.display.Javascript object>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "bxUAdCUM_6PQ",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Attain Metrics for video inference on test video\n",
+        "\n",
+        "import matplotlib.pyplot as plt\n",
+        "\n",
+        "#plt.plot(range(0, len(pred_flies)), pred_flies)\n",
+        "\n",
+        "num_flies = 41\n",
+        "\n",
+        "print('Actual count: ', num_flies)\n",
+        "print('Predicted count: ', sum(pred_flies)/len(pred_flies))\n",
+        "\n",
+        "\n",
+        "\n",
+        "corrected_flies = []\n",
+        "for i in pred_flies:\n",
+        "  corrected_flies.append(i-num_flies)\n",
+        "\n",
+        "abs_dev = []\n",
+        "for i in corrected_flies:\n",
+        "  abs_dev.append(abs(i))\n",
+        "\n",
+        "print(\"Absolute Deviation: \", sum(abs_dev))\n",
+        "\n",
+        "plt.bar(range(0, len(corrected_flies)), corrected_flies)\n",
+        "plt.ylim([-15,15])\n",
+        "    \n",
+        "plt.xlabel('Frame')\n",
+        "plt.ylabel('Count deviation')\n",
+        "plt.show()\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "yKeQBSTXVO1D"
+      },
+      "source": [
+        "#Object Tracking using SORT\n",
+        "\n",
+        "usually throws an error - you may have to reset the runtime and re-run this cell. (NOTE: Do not factory reset runtime since you'll loose everything you've generated this session)"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "8u7QCEjqTFmp",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Import Modules\n",
+        "#@markdown If an error is generated, you will need to reset the runtime and re-run this cell\n",
+        "\n",
+        "!git clone https://github.com/abewley/sort\n",
+        "!pip install filterpy\n",
+        "%cd sort\n",
+        "\n",
+        "import matplotlib\n",
+        "matplotlib.use('TKAgg')\n",
+        "from sort import *\n"
+      ],
+      "execution_count": null,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Hv49whjRs1md",
+        "cellView": "form"
+      },
+      "source": [
+        "#@title Run Tracking with test video\n",
+        "\n",
+        "#!/usr/bin/env python3\n",
+        "#Took 27 mins to write to video\n",
+        "# -- coding: utf-8 --\n",
+        "\n",
+        "import detectron2\n",
+        "from detectron2.utils.logger import setup_logger\n",
+        "setup_logger()\n",
+        "# import some common libraries\n",
+        "import numpy as np\n",
+        "import tqdm\n",
+        "import cv2\n",
+        "# import some common detectron2 utilities\n",
+        "from detectron2 import model_zoo\n",
+        "from detectron2.engine import DefaultPredictor\n",
+        "from detectron2.config import get_cfg\n",
+        "from detectron2.utils.video_visualizer import VideoVisualizer\n",
+        "from detectron2.utils.visualizer import ColorMode, Visualizer\n",
+        "from detectron2.data import MetadataCatalog\n",
+        "import time\n",
+        "\n",
+        "\n",
+        "\n",
+        "# Extract video properties\n",
+        "video = cv2.VideoCapture($testvid_path)\n",
+        "width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))\n",
+        "height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))\n",
+        "frames_per_second = video.get(cv2.CAP_PROP_FPS)\n",
+        "num_frames = int(video.get(cv2.CAP_PROP_FRAME_COUNT))\n",
+        "\n",
+        "# Initialize video writer\n",
+        "video_writer = cv2.VideoWriter('tracked_out.mp4', fourcc=cv2.VideoWriter_fourcc(*\"mp4v\"), fps=float(frames_per_second), frameSize=(width, height), isColor=True)\n",
+        "\n",
+        "# Initialize predictor\n",
+        "#cfg = get_cfg()\n",
+        "#cfg.merge_from_file(model_zoo.get_config_file(\"COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\"))\n",
+        "#cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.7  # set threshold for this model\n",
+        "#cfg.MODEL.WEIGHTS = \"/content/drive/MyDrive/model_final.pth\"\n",
+        "#cfg.MODEL.WEIGHTS = model_zoo.get_checkpoint_url(\"COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml\")\n",
+        "#predictor = DefaultPredictor(cfg)\n",
+        "\n",
+        "# Initialize visualizer\n",
+        "v = VideoVisualizer(MetadataCatalog.get(cfg.DATASETS.TRAIN[0]), ColorMode.IMAGE)\n",
+        "\n",
+        "tracker = Sort(max_age=25000, min_hits=1, iou_threshold=0.01)\n",
+        "\n",
+        "def num_uniID(trackers):\n",
+        "    from itertools import chain\n",
+        "    ids = []\n",
+        "    for frm in trackers:\n",
+        "        frm_ids = []\n",
+        "        for fly in frm:\n",
+        "            flyID = fly[4]\n",
+        "            frm_ids.append(flyID)\n",
+        "        ids.append(frm_ids)\n",
+        "        \n",
+        "    ids = np.array(ids, dtype=object)\n",
+        "        \n",
+        "    return(set(chain(*ids)))\n",
+        "\n",
+        "def plot_ID(trackers, ID):\n",
+        "    coords = []\n",
+        "    for frm in trackers:\n",
+        "        gotFly = False\n",
+        "        for fly in frm:\n",
+        "            if int(fly[4]) == ID:\n",
+        "                #gotFly = True\n",
+        "                coords.append((fly[0], fly[1]))\n",
+        "        #if gotFly == False:\n",
+        "        #     pass\n",
+        "    return(coords)\n",
+        "            #coords.append(coords[-1])\n",
+        "    \n",
+        "def plot_tracker(trackers, cascade, threshold = 1000):\n",
+        "    global coords\n",
+        "    coord_lengths = []\n",
+        "    matplotlib.pyplot.figure()\n",
+        "    no_flies = 0\n",
+        "    for ID in num_uniID(trackers):\n",
+        "        coords = plot_ID(trackers, ID)\n",
+        "        coord_lengths.append(len(coords))\n",
+        "        if len(coords) > threshold:\n",
+        "            no_flies +=1\n",
+        "            plt.plot(*zip(*coords))\n",
+        "    print('Number of flies > threshold: ', no_flies)\n",
+        "    matplotlib.pyplot.title(cascade + '\\n' + str(no_flies) + ' Flies @ Threshold: ' + str(threshold))\n",
+        "    plt.figure()\n",
+        "    plt.hist(coord_lengths, bins = range(0,5000, 100))\n",
+        "    plt.axvline(np.mean(coord_lengths), color = 'k', linestyle = 'dashed', linewidth = 1, label = 'Mean Track Length')\n",
+        "    print('Mean Track Length = ', np.mean(coord_lengths))\n",
+        "    plt.title(cascade + '\\n' + 'Track Length Histogram:')\n",
+        "    plt.xlabel('Track Length (Frames)')\n",
+        "    plt.ylabel('Frequency')\n",
+        "    plt.legend()\n",
+        "\n",
+        "\n",
+        "\n",
+        "def runOnVideo(video, maxFrames):\n",
+        "    global pred_flies, outputs, trackers\n",
+        "    \"\"\" Runs the predictor on every frame in the video (unless maxFrames is given),\n",
+        "    and returns the frame with the predictions drawn.\n",
+        "    \"\"\"\n",
+        "    pred_flies = []\n",
+        "    readFrames = 0\n",
+        "    trackers = []\n",
+        "    while True:\n",
+        "        hasFrame, frame = video.read()\n",
+        "        if not hasFrame:\n",
+        "            break\n",
+        "\n",
+        "        # Get prediction results for this frame\n",
+        "        outputs = predictor(frame)\n",
+        "        pred_flies.append(len(outputs[\"instances\"].pred_classes))\n",
+        "\n",
+        "        # Make sure the frame is colored\n",
+        "        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)\n",
+        "\n",
+        "        # Draw a visualization of the predictions using the video visualizer\n",
+        "        visualization = v.draw_instance_predictions(frame, outputs[\"instances\"].to(\"cpu\"))\n",
+        "        \n",
+        "        full_array = []\n",
+        "        for i,box in enumerate(outputs[\"instances\"].to('cpu').pred_boxes.tensor.numpy()):\n",
+        "          complete = np.append(box, outputs['instances'].to('cpu').scores.numpy()[i])\n",
+        "          full_array.append(complete)\n",
+        "        full_array = np.array(full_array)\n",
+        "        trackers.append(tracker.update(full_array)) #outputs[\"instances\"].to('cpu').pred_boxes.tensor.numpy())\n",
+        "\n",
+        "        #visualization = v.draw_instance_predictions(frame, tracker)\n",
+        "\n",
+        "\n",
+        "        # Convert Matplotlib RGB format to OpenCV BGR format\n",
+        "        visualization = cv2.cvtColor(visualization.get_image(), cv2.COLOR_RGB2BGR)\n",
+        "\n",
+        "        yield visualization\n",
+        "\n",
+        "        readFrames += 1\n",
+        "        if readFrames > maxFrames:\n",
+        "            break\n",
+        "    print(\"number of unique IDs\", len(num_uniID(trackers)))\n",
+        "    \n",
+        "    for threshold in range(1000, 4500, 500): \n",
+        "      plot_tracker(trackers, 'Faster R-CNN', threshold)\n",
+        "# Create a cut-off for debugging\n",
+        "#num_frames = 120\n",
+        "\n",
+        "# Enumerate the frames of the video\n",
+        "for visualization in tqdm.tqdm(runOnVideo(video, num_frames), total=num_frames):\n",
+        "\n",
+        "    # Write test image\n",
+        "    cv2.imwrite('POSE detectron2.png', visualization)\n",
+        "\n",
+        "    # Write to video file\n",
+        "    video_writer.write(visualization)\n",
+        "\n",
+        "# Release resources\n",
+        "video.release()\n",
+        "video_writer.release()\n",
+        "cv2.destroyAllWindows()\n",
+        "send_notification('Finished tracking')"
+      ],
+      "execution_count": null,
+      "outputs": []
+    }
+  ]
+}
