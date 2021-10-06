@@ -15,8 +15,7 @@ The Collab Notebooks for Faster R-CNN & YOLO can be found below:
 
 Faster R-CNN detection + Tracking: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/KILBAHA/9dd146ec953412a0bddb76bf375568e5/detectron2_w_drosophila.ipynb)
 
-
-YOLO detection:
+YOLO detection: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/KILBAHA/1fdf33d2859c98b1b22c889c22027818/drosophila_yolov4.ipynb)
 
 YOLO detection + Tracking: 
 
