@@ -17,8 +17,7 @@ Faster R-CNN detection + Tracking:     [![Open In Colab](https://colab.research.
 
 YOLO detection:     [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/KILBAHA/1fdf33d2859c98b1b22c889c22027818/drosophila_yolov4.ipynb)
 
-DeepSORT with YOLO weights: 
-
+DeepSORT with YOLO weights:    [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/gist/KILBAHA/ac8f70b5c4be61309850a4b69f4df322/deepsort.ipynb)
 
 These are entirely self contained and should run straight out of the box.
 
