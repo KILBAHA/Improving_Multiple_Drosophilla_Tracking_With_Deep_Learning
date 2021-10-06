@@ -8,7 +8,7 @@ The web-report for this project can be found at: https://improving-object-tracki
 ### Viola-Jones
 The Scripts for the Viola Jones Object Detection method can be found in the "Haar" Directory. To utilise this, you will need the following dependencies: 
 1) OpenCV
-2) The Ethoscope Development Branch  https://github.com/gilestrolab/ethoscope
+2) The Ethoscope Development Branch from https://github.com/gilestrolab/ethoscope
 
 ### CNN Methods
 The Collab Notebooks for Faster R-CNN & YOLO can be found below:
