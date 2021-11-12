@@ -1,5 +1,5 @@
 # Improving Multiple Drosophilla Tracking with Convolutional Neural Networks
-A computer vision project conducted in conjunction with Imperial's Gillestro Laboratory during my Bioinformatics MSc. The aim was to detect and track multiple fruit flies in footage from behavioural experiments. There had been prevous attempts by the lab to utilise the Viola-Jones object detection framework, but this lead to inconsistent detection that often underpredicted the number of flies. I improved this by employing two CNN frameworks - YOLO (Darknet) & Faster R-CNN (Detectron 2).
+A computer vision project conducted in conjunction with Imperial's Gillestro Laboratory during my Bioinformatics MSc. The aim was to detect and track multiple fruit flies in footage from behavioural experiments. There had been prevous attempts by the lab to utilise the Viola-Jones object detection framework, but this lead to inconsistent detection that often underpredicted the number of flies. I improved this by employing two CNN frameworks - YOLO (Darknet) & Faster R-CNN (PyTorch & Detectron 2).
 
 The web-report for this project can be found at: https://improving-object-tracking-using-deep-le.webflow.io/
 
